@@ -1,0 +1,8 @@
+build/
+.idea/
+.vscode/
+*.iml
+.flutter-plugins
+.packages
+.pub-cache/
+.dart_tool/
