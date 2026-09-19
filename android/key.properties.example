@@ -1,0 +1,4 @@
+# Copy this file to android/key.properties for local release builds.
+# Do not commit android/key.properties.
+keyAlias=upload
+storeFile=../upload-keystore-play.jks

@@ -1,29 +1,61 @@
 name: my_app
 description: A new Flutter project.
 publish_to: 'none' # Remove this line to publish to pub.dev
-version: 1.0.0+1
+version: 1.4.0+14
 
 environment:
-  sdk: ">=2.12.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=2.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
+  image_picker: ^1.1.2
+  image_gallery_saver_plus: ^5.1.1
+  file_picker: ^11.0.3
+  ffmpeg_kit_flutter_new: ^4.6.2
+  image: ^4.2.0
+  path_provider: ^2.1.2
+  share_plus: ^10.1.4
+  video_player: ^2.8.2
+  cross_file: ^0.3.5+4
+  google_mobile_ads: ^9.1.0
+  in_app_purchase: ^3.2.0
+  shared_preferences: ^2.3.2
+  flutter_svg: ^2.0.17
+  http: ^1.2.2
+  audioplayers: ^6.0.0
+  disk_capacity: ^1.2.0
+  google_fonts: ^8.2.1
+  cached_network_image: ^4.0.0
+  flutter_animate: ^4.5.2
+  gma_mediation_applovin: ^2.6.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/
+    - assets/templates/
+    - assets/overlays/
+    - assets/videos/
+  shaders:
+    - shaders/image_editor.frag
 
-  fonts:
-    - family: Roboto
-      fonts:
-        - asset: fonts/Roboto-Regular.ttf
+flutter_launcher_icons:
+  android: true
+  ios: false
+  web:
+    generate: true
+  macos:
+    generate: true
+  image_path: assets/images/clipsnap_brand_logo.png
+  adaptive_icon_background: "#3F0E66"
+  adaptive_icon_foreground: assets/images/clipsnap_brand_logo.png

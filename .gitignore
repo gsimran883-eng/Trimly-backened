@@ -6,3 +6,6 @@ build/
 .packages
 .pub-cache/
 .dart_tool/
+android/key.properties
+android/*.jks
+upload-keystore-play.jks

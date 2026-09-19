@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420">
+  <defs>
+    <linearGradient id="film" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#54f1e6"/>
+      <stop offset="0.48" stop-color="#49bfff"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0.2" x2="1" y2="0.8">
+      <stop stop-color="#22d3ee"/>
+      <stop offset="0.55" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#ec4899"/>
+    </linearGradient>
+    <radialGradient id="reel" cx="0.38" cy="0.3" r="0.8">
+      <stop stop-color="#67e8f9"/>
+      <stop offset="0.48" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#581c87"/>
+    </radialGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M38 346c92-84 177-85 260-24 89 65 176 53 278-55 36-38 66-41 103-22-80 6-86 98-177 136-112 47-202-34-281-23-70 10-114 48-183 17" stroke="url(#ribbon)" stroke-width="22" opacity=".72"/>
+    <path d="M42 322c79-61 154-65 230-14 103 69 192 37 286-75" stroke="#50e3e6" stroke-width="6" opacity=".8"/>
+    <path d="M285 92l322-54 22 130-322 54z" fill="#24205e" stroke="url(#film)" stroke-width="9"/>
+    <path d="M318 105l52-9 9 33-52 9zm82-14 52-9 9 33-52 9zm82-14 52-9 9 33-52 9zm82-14 42-7 9 33-42 7" fill="#050813" stroke="none"/>
+    <path d="M331 173l52-9 8 32-52 9zm82-14 52-9 8 32-52 9zm82-14 52-9 8 32-52 9zm82-14 41-7 8 32-41 7" fill="#050813" stroke="none"/>
+    <g transform="translate(190 122)">
+      <circle r="82" fill="url(#reel)" stroke="#84f7f0" stroke-width="6"/>
+      <circle r="16" fill="#090b21" stroke="#79dff5" stroke-width="4"/>
+      <g fill="#090b21" stroke="#8de8f7" stroke-width="3">
+        <circle cy="-48" r="23"/><circle cx="45" cy="-15" r="23"/>
+        <circle cx="28" cy="40" r="23"/><circle cx="-28" cy="40" r="23"/>
+        <circle cx="-45" cy="-15" r="23"/>
+      </g>
+    </g>
+    <g transform="translate(116 278)">
+      <circle r="92" fill="url(#reel)" stroke="#65f4e8" stroke-width="7"/>
+      <circle r="17" fill="#090b21" stroke="#79dff5" stroke-width="4"/>
+      <g fill="#090b21" stroke="#8de8f7" stroke-width="3">
+        <circle cy="-54" r="26"/><circle cx="51" cy="-17" r="26"/>
+        <circle cx="31" cy="44" r="26"/><circle cx="-31" cy="44" r="26"/>
+        <circle cx="-51" cy="-17" r="26"/>
+      </g>
+    </g>
+    <path d="M270 188l168 97-168 97z" fill="url(#film)" stroke="#7ff8ed" stroke-width="9"/>
+    <path d="M309 248l64 37-64 37z" fill="#11173d" stroke="none"/>
+    <path d="M214 217v157M227 223v144" stroke="#31d6f4" stroke-width="4" opacity=".8"/>
+    <path d="M604 204q40-32 77 4-25 12-31 43-25-28-61-23z" fill="#432472" stroke="#70e6fa" stroke-width="5"/>
+    <path d="M49 180h25m-12-12v25M529 247h31m-15-15v31M651 104h20m-10-10v20" stroke="#8bf7ee" stroke-width="5"/>
+    <circle cx="55" cy="238" r="6" fill="#72ddff" stroke="none"/>
+    <circle cx="555" cy="328" r="7" fill="#63f7e4" stroke="none"/>
+  </g>
+</svg>
