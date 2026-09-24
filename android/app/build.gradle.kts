@@ -124,6 +124,7 @@ dependencies {
 
     // Google ML Kit subject segmentation for masking subject/background.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+    implementation("com.google.mlkit:face-detection:16.1.7")
 
     implementation("com.google.ads.mediation:facebook:6.18.0.0")
 

@@ -833,10 +833,25 @@ class _ClipSnapEditorScreenState extends State<ClipSnapEditorScreen> {
 
   Widget _buildCanvasPreview() {
     final videoController = _videoController;
+    final hasTemplateOverlay =
+        _activeTemplateOverlayAsset != null && _activeTemplateOverlayAsset!.isNotEmpty;
+
     if (videoController != null && videoController.value.isInitialized) {
       return Stack(
         fit: StackFit.expand,
         children: [
+          if (hasTemplateOverlay)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 1.0,
+                  child: Image.asset(
+                    _activeTemplateOverlayAsset!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
           FittedBox(
             fit: BoxFit.cover,
             child: SizedBox(

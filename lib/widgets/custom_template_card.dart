@@ -121,22 +121,24 @@ class _CustomTemplateCardState extends State<CustomTemplateCard>
                 ),
               ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.1),
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.black.withValues(alpha: 0.95),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: 0.28,
+                widthFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Color(0xE6000000)],
+                    ),
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,8 +149,8 @@ class _CustomTemplateCardState extends State<CustomTemplateCard>
                       Flexible(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
+                            horizontal: 6,
+                            vertical: 2,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.6),
@@ -163,7 +165,7 @@ class _CustomTemplateCardState extends State<CustomTemplateCard>
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.cyanAccent,
-                              fontSize: 8,
+                              fontSize: 7,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
                             ),
@@ -171,9 +173,9 @@ class _CustomTemplateCardState extends State<CustomTemplateCard>
                         ),
                       ),
                       if (widget.template.isPremium) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 5),
                         Container(
-                          padding: const EdgeInsets.all(5),
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: Colors.amberAccent,
                             shape: BoxShape.circle,
@@ -186,38 +188,26 @@ class _CustomTemplateCardState extends State<CustomTemplateCard>
                           ),
                           child: const Icon(
                             Icons.lock_rounded,
-                            size: 10,
+                            size: 9,
                             color: Colors.black,
                           ),
                         ),
                       ],
                     ],
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.template.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.template.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    widget.template.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0,
+                      shadows: [
+                        Shadow(color: Colors.black, blurRadius: 5),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -22,4 +22,26 @@ class AILocalSegmentationService {
 
     throw const FormatException('segmentSubject response missing imageBytes.');
   }
+
+  Future<Uint8List> createFacePreserveMask(Uint8List imageBytes) async {
+    final response = await _channel.invokeMethod<Object?>(
+      'createFacePreserveMask',
+      {'imageBytes': imageBytes},
+    );
+    if (response is! Map) {
+      throw const FormatException(
+        'createFacePreserveMask response must be a map.',
+      );
+    }
+    final bytes = response['imageBytes'];
+    if (bytes is Uint8List) {
+      return bytes;
+    }
+    if (bytes is List<int>) {
+      return Uint8List.fromList(bytes);
+    }
+    throw const FormatException(
+      'createFacePreserveMask response missing imageBytes.',
+    );
+  }
 }

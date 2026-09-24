@@ -1,21 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:my_app/data/template_presets.dart';
+import 'package:my_app/services/ai_generative_template_service.dart';
 import 'package:my_app/services/template_render_service.dart';
 
 void main() {
-  test('cyber glitch template builds a layered FFmpeg graph with an overlay', () {
-    final template = clipSnapTemplates.firstWhere((item) => item.id == 'cyber_glitch_v2');
+  test('cyber glitch template builds a layered FFmpeg graph with an overlay',
+      () {
+    final template =
+        clipSnapTemplates.firstWhere((item) => item.id == 'cyber_glitch_v2');
 
-    final graph = template.buildFilterGraph(overlayAssetPath: template.overlayAssetPath);
+    final graph =
+        template.buildFilterGraph(overlayAssetPath: template.overlayAssetPath);
 
-    expect(graph, contains('[0:v]scale=720:1280:force_original_aspect_ratio=increase'));
+    expect(graph,
+        contains('[0:v]scale=720:1280:force_original_aspect_ratio=increase'));
     expect(graph, contains('overlay=0:0'));
     expect(graph, contains('[1:v]scale=720:1280'));
   });
 
-  test('render command includes a second input when overlay assets are present', () {
-    final template = clipSnapTemplates.firstWhere((item) => item.id == 'cyber_glitch_v2');
+  test('render command includes a second input when overlay assets are present',
+      () {
+    final template =
+        clipSnapTemplates.firstWhere((item) => item.id == 'cyber_glitch_v2');
 
     final command = buildTemplateRenderCommand(
       inputPath: '/tmp/input.mp4',
@@ -25,6 +32,7 @@ void main() {
     );
 
     expect(command, contains('-i "/tmp/input.mp4"'));
+    expect(command, contains('-loop 1 -i "/tmp/overlay.png"'));
     expect(command, contains('-i "/tmp/overlay.png"'));
     expect(command, contains('-filter_complex'));
     expect(command, contains('overlay=0:0'));
@@ -73,13 +81,16 @@ void main() {
     expect(quantum.buildFilterGraph(), contains('drawbox=x=0:y=0'));
   });
 
-  test('template id maps to a unique action payload with subject and environment data', () {
-    final rambo = clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
-    final ballroom =
-        clipSnapTemplates.firstWhere((item) => item.id == 'cinderella_ballroom');
+  test(
+      'template id maps to a unique action payload with subject and environment data',
+      () {
+    final rambo =
+        clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
+    final ballroom = clipSnapTemplates
+        .firstWhere((item) => item.id == 'cinderella_ballroom');
 
     expect(rambo.actionPayload['subjectMask'], isTrue);
-    expect(rambo.actionPayload['backgroundPrompt'], contains('jungle')); 
+    expect(rambo.actionPayload['backgroundPrompt'], contains('jungle'));
     expect(rambo.actionPayload['materialAssetPath'], contains('assets/'));
 
     expect(ballroom.actionPayload['grade'], equals('warm_cinematic'));
@@ -87,8 +98,11 @@ void main() {
     expect(ballroom.actionPayload['backgroundPrompt'], contains('ballroom'));
   });
 
-  test('render command carries the template action recipe into the export pipeline', () {
-    final template = clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
+  test(
+      'render command carries the template action recipe into the export pipeline',
+      () {
+    final template =
+        clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
 
     final command = buildTemplateRenderCommand(
       inputPath: '/tmp/input.mp4',
@@ -100,5 +114,59 @@ void main() {
     expect(command, contains('template_id="rambo_action"'));
     expect(command, contains('subject_mask=1'));
     expect(command, contains('background_prompt="dense jungle combat scene'));
+  });
+
+  test(
+      'action templates stack a real overlay layer instead of only a filter grade',
+      () {
+    final rambo =
+        clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
+    final ballroom = clipSnapTemplates
+        .firstWhere((item) => item.id == 'cinderella_ballroom');
+
+    final ramboGraph = rambo.buildFilterGraph(
+      overlayAssetPath: rambo.materialAssetPath ?? rambo.overlayAssetPath,
+    );
+    final ballroomGraph = ballroom.buildFilterGraph(
+      overlayAssetPath: ballroom.materialAssetPath ?? ballroom.overlayAssetPath,
+    );
+
+    expect(ramboGraph, contains('[1:v]scale=720:1280'));
+    expect(ramboGraph, contains('overlay=0:0'));
+    expect(ballroomGraph, contains('[1:v]scale=720:1280'));
+    expect(ballroomGraph, contains('overlay=0:0'));
+  });
+
+  test('Rambo replaces the scene and preserves an enhanced subject layer', () {
+    final rambo =
+        clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
+    final graph = rambo.buildFilterGraph(
+      overlayAssetPath: rambo.materialAssetPath,
+    );
+
+    expect(rambo.materialAssetPath, contains('rambo_jungle_backdrop.jpg'));
+    expect(graph, contains('[background]'));
+    expect(graph, contains('[subject]'));
+    expect(graph, contains('alphamerge'));
+    expect(graph, contains('gblur=sigma=18'));
+    expect(graph, contains('unsharp='));
+    expect(graph, contains('[v]'));
+  });
+
+  test('Rambo requests a high-fidelity generative clothing transformation', () {
+    final rambo =
+        clipSnapTemplates.firstWhere((item) => item.id == 'rambo_action');
+
+    expect(rambo.actionPayload['generativeEdit'], isTrue);
+    expect(rambo.actionPayload['preserveFace'], isTrue);
+    expect(AIGenerativeTemplateService.ramboPrompt,
+        contains('uploaded person identity'));
+    expect(AIGenerativeTemplateService.ramboPrompt, contains('machine-gun'));
+    expect(AIGenerativeTemplateService.ramboPrompt, contains('rainfall'));
+    expect(AIGenerativeTemplateService.ramboPrompt, contains('premium 4K'));
+    expect(
+      AIGenerativeTemplateService().modelName,
+      'Local Realistic Vision V6',
+    );
   });
 }

@@ -14,7 +14,9 @@ Future<bool> exportVideoWithTemplate({
   String? overlayAssetPath,
 }) async {
   final resolvedOverlay = await resolveTemplateOverlayAsset(
-    overlayAssetPath ?? selectedTemplate.overlayAssetPath,
+    overlayAssetPath ??
+        selectedTemplate.materialAssetPath ??
+        selectedTemplate.overlayAssetPath,
   );
   final command = buildTemplateRenderCommand(
     inputPath: inputPath,
@@ -36,7 +38,9 @@ Future<bool> exportImageWithTemplate({
   String? overlayAssetPath,
 }) async {
   final resolvedOverlay = await resolveTemplateOverlayAsset(
-    overlayAssetPath ?? selectedTemplate.overlayAssetPath,
+    overlayAssetPath ??
+        selectedTemplate.materialAssetPath ??
+        selectedTemplate.overlayAssetPath,
   );
   final command = buildTemplateRenderCommand(
     inputPath: inputPath,
@@ -81,7 +85,9 @@ String buildTemplateRenderCommand({
   String? overlayAssetPath,
   bool isStillImage = false,
 }) {
-  final resolvedOverlay = overlayAssetPath ?? selectedTemplate.overlayAssetPath;
+  final resolvedOverlay = overlayAssetPath ??
+      selectedTemplate.materialAssetPath ??
+      selectedTemplate.overlayAssetPath;
   final escapedInput = _escapePath(inputPath);
   final escapedOutput = _escapePath(outputPath);
   final graph = selectedTemplate.buildFilterGraph(
@@ -93,7 +99,8 @@ String buildTemplateRenderCommand({
 
   final hasOverlay = resolvedOverlay != null && resolvedOverlay.isNotEmpty;
   final beforeFilterInputs = hasOverlay
-      ? '-y -i "$escapedInput" -i "${_escapePath(resolvedOverlay)}" '
+      ? '-y -i "$escapedInput" ${isStillImage ? "" : "-loop 1 "}'
+        '-i "${_escapePath(resolvedOverlay)}" '
       : '-y -i "$escapedInput" ';
 
   if (hasOverlay) {

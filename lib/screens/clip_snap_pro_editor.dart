@@ -10,10 +10,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/template_presets.dart';
 import '../models/template_model.dart';
+import '../services/ai_generative_template_service.dart';
 import '../services/ai_image_cloud_service.dart';
 import '../services/export_status_service.dart';
 import '../services/ai_local_segmentation_service.dart';
 import '../services/monetization_service.dart';
+import '../services/point_service.dart';
 import '../theme/motion_spec.dart';
 
 class ClipSnapProEditor extends StatefulWidget {
@@ -51,6 +53,8 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
   double _exportPixelRatio = 3.0;
   double _eraserBrushSize = 34;
   bool _isAiProcessing = false;
+  bool _ramboPointsCharged = false;
+  late final AnimationController _generationProgressController;
   String _selectedUpscalePreset = '2x';
   String _selectedSkyPreset = 'Sunny';
   String _selectedMaskTarget = 'Subject';
@@ -62,8 +66,14 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
   Uint8List? _lastSubjectMaskBytes;
 
   final AIImageCloudService _cloudAiService = AIImageCloudService();
+  final AIGenerativeTemplateService _generativeTemplateService =
+      AIGenerativeTemplateService();
   final AILocalSegmentationService _localSegmentationService =
       AILocalSegmentationService();
+
+  bool get _isRamboGenerativeTemplate =>
+      widget.initialAiConfig?['templateId'] == 'rambo_action' ||
+      widget.initialAiConfig?['template'] == 'rambo_action';
 
   double _brightness = 0.0;
   double _contrast = 1.0;
@@ -111,6 +121,12 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
       vsync: this,
       duration: MotionSpec.entryDuration,
     )..forward();
+    _generationProgressController = AnimationController(
+      vsync: this,
+      duration: const Duration(minutes: 4),
+    );
+    _ramboPointsCharged =
+        widget.initialAiConfig?['pointsCharged'] as bool? ?? false;
     _applyInitialAiFocus();
     _loadEditorPreferences();
   }
@@ -168,6 +184,15 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
           _clarity = strength.clamp(0.0, 1.0);
         }
         break;
+      case 'generative_template':
+        if (_isRamboGenerativeTemplate) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _runRamboGenerativeEdit();
+            }
+          });
+        }
+        break;
       default:
         break;
     }
@@ -214,6 +239,8 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
   @override
   void dispose() {
     _entryController.dispose();
+    _generationProgressController.dispose();
+    _generativeTemplateService.dispose();
     super.dispose();
   }
 
@@ -269,10 +296,110 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
               if (_showPhotoworksReferenceUi)
                 _buildPhotoworksReferenceOverlay(),
               if (_isExporting) _buildExportOverlay(),
+              if (_isAiProcessing)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0xB8000000),
+                    child: Center(
+                      child: _isRamboGenerativeTemplate
+                          ? _buildRamboProgressOverlay()
+                          : const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(
+                                    color: Colors.cyanAccent),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Processing image...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRamboProgressOverlay() {
+    return AnimatedBuilder(
+      animation: _generationProgressController,
+      builder: (context, child) {
+        final progress = (_generationProgressController.value * 0.92)
+            .clamp(0.0, 0.92)
+            .toDouble();
+        final percentage = (progress * 100).round();
+        final status = percentage < 12
+            ? 'Preparing your photo...'
+            : percentage < 28
+                ? 'Preserving your face...'
+                : percentage < 92
+                    ? 'Generating the Rambo transformation...'
+                    : 'Finishing the HD image...';
+        return SizedBox(
+          width: 270,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 92,
+                    height: 92,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 7,
+                      backgroundColor: Colors.white24,
+                      color: Colors.cyanAccent,
+                    ),
+                  ),
+                  Text(
+                    '$percentage%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                status,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Local generation can take a few minutes. Keep the app open.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: Colors.white24,
+                  color: Colors.cyanAccent,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1682,22 +1809,44 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
         return ListView(
           padding: EdgeInsets.zero,
           children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
+            if (_isRamboGenerativeTemplate) ...[
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB45309),
+                ),
+                onPressed: _isAiProcessing ? null : _runRamboGenerativeEdit,
+                icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                label: Text(
+                  _isAiProcessing
+                      ? 'Generating Rambo transformation...'
+                      : 'Generate HD Rambo Look (Face Preserve)',
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
-              onPressed: _isAiProcessing ? null : _applyAiCutout,
-              icon: const Icon(Icons.content_cut, color: Colors.white),
-              label: Text(
-                _isAiProcessing
-                    ? 'Processing...'
-                    : (_aiCutoutEnabled
-                        ? 'Re-Apply Subject Mask (Local)'
-                        : 'Subject Mask (Local ML Kit)'),
-                style: const TextStyle(color: Colors.white),
+              const SizedBox(height: 8),
+              Text(
+                'Face-preserving pixel generation using ${_generativeTemplateService.modelName}.',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 12),
+            ] else ...[
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                ),
+                onPressed: _isAiProcessing ? null : _applyAiCutout,
+                icon: const Icon(Icons.content_cut, color: Colors.white),
+                label: Text(
+                  _isAiProcessing
+                      ? 'Processing...'
+                      : (_aiCutoutEnabled
+                          ? 'Re-Apply Subject Mask (Local)'
+                          : 'Subject Mask (Local ML Kit)'),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             const Text(
               'Generative cloud tasks (4x/8x and sky replacement)',
               style: TextStyle(color: Colors.white70, fontSize: 12),
@@ -2373,6 +2522,64 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
       if (mounted) {
         setState(() => _isAiProcessing = false);
       }
+    }
+  }
+
+  Future<void> _runRamboGenerativeEdit() async {
+    if (_isAiProcessing) {
+      return;
+    }
+
+    final sourceFile = widget.imageFile;
+    if (sourceFile == null) {
+      _showAiError('Select a source photo before generating the template.');
+      return;
+    }
+
+    _generationProgressController.forward(from: 0);
+    setState(() => _isAiProcessing = true);
+    try {
+      final sourceBytes = await sourceFile.readAsBytes();
+      final faceMask =
+          await _localSegmentationService.createFacePreserveMask(sourceBytes);
+      final generatedBytes =
+          await _generativeTemplateService.generateRamboPortrait(
+        imageBytes: sourceBytes,
+        maskBytes: faceMask,
+        fileName: sourceFile.path.split(Platform.pathSeparator).last,
+      );
+
+      _pushUndoSnapshot();
+      setState(() {
+        _aiRenderedImageBytes = generatedBytes;
+        _brightness = 0;
+        _contrast = 1;
+        _saturation = 1;
+        _temperature = 0;
+        _clarity = 0;
+        _sharpen = 0;
+      });
+
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('HD Rambo transformation generated with face preservation.'),
+        ),
+      );
+    } catch (error) {
+      if (_ramboPointsCharged) {
+        await PointService.addPoints(PointService.ramboGenerationCost);
+        _ramboPointsCharged = false;
+      }
+      _showAiError('Rambo generation failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isAiProcessing = false);
+      }
+      _generationProgressController.stop();
     }
   }
 

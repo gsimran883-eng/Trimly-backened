@@ -18,6 +18,7 @@ import '../data/template_presets.dart';
 import '../models/template_model.dart';
 import '../services/export_status_service.dart';
 import '../services/monetization_service.dart';
+import '../services/point_service.dart';
 import '../services/template_render_service.dart';
 import '../theme/motion_spec.dart';
 import '../widgets/monetization_banner.dart';
@@ -68,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   int _selectedAspectIndex = 0;
   int _selectedHomeTab = 0;
+  int? _pointsBalance;
   double? _availableStorageGb;
   bool _smartSuggestionsEnabled = true;
   bool _autoSaveDraftsEnabled = true;
@@ -127,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     )..repeat();
     _loadSettings();
     _loadStorageStatus();
+    _loadPointsBalance();
   }
 
   @override
@@ -142,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final savedExportQuality = prefs.getString(_settingsExportQualityKey);
     final savedFps = prefs.getInt(_settingsExportFpsKey);
     final savedBitrate = prefs.getInt(_settingsExportBitrateKey);
-
     if (!mounted) {
       return;
     }
@@ -184,6 +186,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           prefs.getInt(_settingsBrandAccentColorKey) ?? _brandAccentColorValue;
       _brandLutPath = prefs.getString(_settingsBrandLutPathKey);
     });
+  }
+
+  Future<void> _loadPointsBalance() async {
+    final points = await PointService.getPoints();
+    if (mounted) {
+      setState(() => _pointsBalance = points);
+    }
   }
 
   Future<void> _persistSettings() async {
@@ -277,15 +286,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: _buildReveal(order: 0, child: _buildHeroCreationHub()),
       ),
       SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        sliver: SliverToBoxAdapter(
+          child: _buildReveal(order: 1, child: _buildPointsSummary()),
+        ),
+      ),
+      SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         sliver: SliverToBoxAdapter(
-          child: _buildReveal(order: 1, child: _buildQuickActionRow()),
+          child: _buildReveal(order: 2, child: _buildQuickActionRow()),
         ),
       ),
       SliverPadding(
         padding: const EdgeInsets.only(top: 16),
         sliver: SliverToBoxAdapter(
-          child: _buildReveal(order: 4, child: _buildTemplatesCarousel()),
+          child: _buildReveal(order: 3, child: _buildTemplatesCarousel()),
         ),
       ),
       SliverPadding(
@@ -455,7 +470,115 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _showPointsSheet(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2110),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFF4C95D)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.monetization_on,
+                      color: Color(0xFFF4C95D), size: 18),
+                  const SizedBox(width: 5),
+                  Text(
+                    _pointsBalance?.toString() ?? '--',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _showPointsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF151520),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.monetization_on,
+                      color: Color(0xFFF4C95D), size: 28),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_pointsBalance ?? 0} points available',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Rambo image generation uses 10 points. Get more points with a purchase or a rewarded ad when your balance is empty.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    try {
+                      final started = await MonetizationService.instance
+                          .startPointPurchaseFlow();
+                      if (!mounted) {
+                        return;
+                      }
+                      await _loadPointsBalance();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            started
+                                ? 'Google Play purchase started.'
+                                : 'Points purchase is unavailable. Check that points_pack_100 is active in Google Play Console.',
+                          ),
+                        ),
+                      );
+                    } catch (error) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Points purchase failed: $error'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Get 100 points'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -489,6 +612,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(width: 12),
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _showPointsSheet(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2110),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFF4C95D)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.monetization_on,
+                      color: Color(0xFFF4C95D), size: 18),
+                  const SizedBox(width: 5),
+                  Text(
+                    _pointsBalance?.toString() ?? '--',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
         IconButton(
           tooltip: 'Notifications',
           onPressed: () => _showAppNotice(
@@ -502,6 +658,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           icon: const Icon(Icons.settings_outlined, size: 24),
         ),
       ],
+    );
+  }
+
+  Widget _buildPointsSummary() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _showPointsSheet(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2110),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF4C95D)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.monetization_on,
+                color: Color(0xFFF4C95D), size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${_pointsBalance ?? '--'} points available',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const Text(
+              'Get more',
+              style: TextStyle(
+                color: Color(0xFFF4C95D),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Color(0xFFF4C95D)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -604,6 +802,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTemplatesCarousel() {
+    final visibleTemplates = clipSnapTemplates
+        .where((template) => template.id == 'rambo_action')
+        .toList(growable: false);
+
     return Column(
       key: const ValueKey('studio-templates-carousel'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,9 +857,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         LayoutBuilder(
           builder: (context, constraints) {
             const gap = 14.0;
-            final cardsVisible = 3.0;
-            final cardWidth =
-                (constraints.maxWidth - (gap * (cardsVisible - 1))) / cardsVisible;
+            final cardWidth = (constraints.maxWidth * 0.48).clamp(160.0, 220.0);
             final cardHeight = cardWidth / 0.75;
             return SizedBox(
               height: cardHeight,
@@ -665,11 +865,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 key: const ValueKey('studio-templates-grid'),
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                itemCount: clipSnapTemplates.length,
+                itemCount: visibleTemplates.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(width: gap),
                 itemBuilder: (context, index) {
-                  final template = clipSnapTemplates[index];
+                  final template = visibleTemplates[index];
                   return SizedBox(
                     width: cardWidth,
                     child: _buildPresetTemplateCard(template),
@@ -690,6 +890,172 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Future<XFile?> _showTemplateImageSheet(VideoTemplate template) async {
+    XFile? selectedImage;
+
+    return showModalBottomSheet<XFile>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF171717),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 138,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            template.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            template.description,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.monetization_on,
+                                color: Color(0xFFF4C95D),
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${PointService.ramboGenerationCost} points - ${_pointsBalance ?? '--'} available',
+                                style: const TextStyle(
+                                  color: Color(0xFFF4C95D),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                const Text(
+                  '1. Photo *',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () async {
+                    final image = await ImagePicker().pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (image != null && context.mounted) {
+                      setSheetState(() => selectedImage = image);
+                    }
+                  },
+                  child: Container(
+                    height: 310,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF292929),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: selectedImage == null
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image_outlined,
+                                  color: Colors.white70, size: 48),
+                              SizedBox(height: 12),
+                              Text(
+                                'Add an image',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Image.file(
+                            File(selectedImage!.path),
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selectedImage == null
+                        ? null
+                        : () => Navigator.of(sheetContext).pop(selectedImage),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(58),
+                      backgroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.white54,
+                      foregroundColor: const Color(0xFF292929),
+                      disabledForegroundColor: const Color(0xFF555555),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                    ),
+                    child: const Text(
+                      'Run Template',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> handleTemplateTap(VideoTemplate template) async {
     final unlocked = await MonetizationService.instance
         .unlockTemplateForSession(context, template: template);
@@ -697,39 +1063,133 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
-    debugPrint('Template payload for ${template.id}: ${template.resolvedActionPayload}');
+    debugPrint(
+        'Template payload for ${template.id}: ${template.resolvedActionPayload}');
 
-    final mediaType = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFF151522),
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.videocam_outlined, color: Colors.cyan),
-              title: const Text('Use a video',
-                  style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.of(sheetContext).pop('video'),
+    final selectedTemplateImage = template.id == 'rambo_action'
+      ? await _showTemplateImageSheet(template)
+      : null;
+    final mediaType = template.id == 'rambo_action'
+      ? (selectedTemplateImage == null ? null : 'image')
+        : await showModalBottomSheet<String>(
+            context: context,
+            backgroundColor: const Color(0xFF151522),
+            builder: (sheetContext) => SafeArea(
+              child: Wrap(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.videocam_outlined,
+                        color: Colors.cyan),
+                    title: const Text('Use a video',
+                        style: TextStyle(color: Colors.white)),
+                    onTap: () => Navigator.of(sheetContext).pop('video'),
+                  ),
+                  ListTile(
+                    leading:
+                        const Icon(Icons.photo_outlined, color: Colors.amber),
+                    title: const Text('Use a photo',
+                        style: TextStyle(color: Colors.white)),
+                    onTap: () => Navigator.of(sheetContext).pop('image'),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_outlined, color: Colors.amber),
-              title: const Text('Use a photo',
-                  style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.of(sheetContext).pop('image'),
-            ),
-          ],
-        ),
-      ),
-    );
+          );
     if (!mounted || mediaType == null) {
       return;
     }
 
     final picker = ImagePicker();
-    final media = mediaType == 'video'
+    final media = selectedTemplateImage ??
+      (mediaType == 'video'
         ? await picker.pickVideo(source: ImageSource.gallery)
-        : await picker.pickImage(source: ImageSource.gallery);
+        : await picker.pickImage(source: ImageSource.gallery));
     if (!mounted || media == null) {
+      return;
+    }
+
+    if (mediaType == 'image' && template.id == 'rambo_action') {
+      final currentPoints = await PointService.getPoints();
+      if (!mounted) {
+        return;
+      }
+
+      final usePoints = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: const Color(0xFF151520),
+          title: const Text(
+            'Choose how to run this template',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            '${PointService.ramboGenerationCost} points are required, or watch a short ad to continue.\n\n$currentPoints points available.',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Watch ad'),
+            ),
+            ElevatedButton(
+              onPressed: currentPoints >= PointService.ramboGenerationCost
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              child: Text('Use ${PointService.ramboGenerationCost} points'),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted || usePoints == null) {
+        return;
+      }
+
+      if (!usePoints) {
+        final watched = await MonetizationService.instance
+            .watchRewardedAdForTemplate();
+        if (!mounted) {
+          return;
+        }
+        if (!watched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('The rewarded ad was not completed.'),
+            ),
+          );
+          return;
+        }
+      }
+
+      var pointsCharged = false;
+      if (usePoints) {
+        pointsCharged = await PointService.deductPoints(
+          PointService.ramboGenerationCost,
+        );
+      }
+
+      if (usePoints && !pointsCharged) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your points balance changed. Try again.')),
+          );
+        }
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ClipSnapProEditor(
+            imageFile: File(media.path),
+            initialAiTool: 'generative_template',
+            initialAiConfig: {
+              ...template.resolvedActionPayload,
+              'pointsCharged': pointsCharged,
+            },
+          ),
+        ),
+      );
+      await _loadPointsBalance();
       return;
     }
 

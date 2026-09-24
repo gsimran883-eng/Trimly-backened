@@ -22,6 +22,7 @@ import '../services/b_roll_suggester.dart';
 import '../services/beat_sync_service.dart';
 import '../services/export_status_service.dart';
 import '../services/monetization_service.dart';
+import '../services/point_service.dart';
 import '../theme/motion_spec.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/editor_tool_bottom_sheet.dart';
@@ -846,6 +847,14 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
     );
   }
 
+  bool get _hasActiveTemplateComposite {
+    if (widget.templateAlreadyRendered) return false;
+    final template = _activeTemplate;
+    if (template == null) return false;
+    final materialPath = template.materialAssetPath ?? template.overlayAssetPath;
+    return materialPath != null && materialPath.isNotEmpty;
+  }
+
   Widget _buildVideoCanvas() {
     final activeTemplate = _activeTemplate;
     final videoController = _videoController;
@@ -856,6 +865,31 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
         child: CircularProgressIndicator(color: Colors.cyanAccent),
       );
     }
+
+    final previewMatrix = _hasActiveTemplateComposite
+        ? const <double>[
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+          ]
+        : _buildComprehensiveMatrix();
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -870,7 +904,7 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
         child: Transform.rotate(
           angle: _rotationQuarterTurns * (math.pi / 2),
           child: ColorFiltered(
-            colorFilter: ColorFilter.matrix(_buildComprehensiveMatrix()),
+            colorFilter: ColorFilter.matrix(previewMatrix),
             child: Stack(
               alignment: Alignment.center,
               fit: StackFit.passthrough,
@@ -899,13 +933,15 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
                 ),
               ),
             if (!widget.templateAlreadyRendered &&
-              activeTemplate?.overlayAssetPath != null)
+              activeTemplate != null &&
+                (activeTemplate.materialAssetPath ?? activeTemplate.overlayAssetPath) != null)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: _activeTemplateOverlayOpacity,
                     child: Image.asset(
-                      activeTemplate!.overlayAssetPath!,
+                      (activeTemplate.materialAssetPath ??
+                              activeTemplate.overlayAssetPath)!,
                       fit: BoxFit.fill,
                       color: _activeTemplateUsesScreenBlend
                           ? Colors.white
@@ -2740,9 +2776,24 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
 
     final shouldAutoCut = _autoCutAtBeatsEnabled && _autoCutSegments.isNotEmpty;
     final videoOutputLabel = brandWatermarkEnabled ? '[outv_brand]' : '[outv]';
+    final activeTemplate = _activeTemplate;
+    final templateAssetPath = activeTemplate?.materialAssetPath ??
+        activeTemplate?.overlayAssetPath;
 
     String ffmpegCommand;
-    if (shouldAutoCut) {
+    if (!widget.templateAlreadyRendered &&
+      activeTemplate != null &&
+        templateAssetPath != null &&
+        templateAssetPath.isNotEmpty) {
+      final templateGraph = activeTemplate.buildFilterGraph(
+        overlayAssetPath: templateAssetPath,
+      );
+      ffmpegCommand =
+          '-y -i "${inputFile.path}" -loop 1 -i "${_escapePathArg(templateAssetPath)}" '
+          '-filter_complex "$templateGraph" -map "[v]" -map 0:a? -r $targetFps '
+          '-c:v libx264 -preset medium -b:v ${targetBitrate}M -maxrate ${targetBitrate}M '
+          '-bufsize ${targetBitrate * 2}M -c:a aac -movflags +faststart "$outputPath"';
+    } else if (shouldAutoCut) {
       var filterComplex = _buildAutoCutFilterComplex(filterGraph);
       filterComplex = _appendKineticTextToFilterComplex(
         filterComplex,
@@ -3398,6 +3449,71 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
       return;
     }
 
+    final currentPoints = await PointService.getPoints();
+    if (!mounted) {
+      return;
+    }
+
+    final usePoints = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF151520),
+        title: const Text(
+          'Choose how to generate speech',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          '${PointService.speechGenerationCost} points are required, or watch a short ad to continue.\n\n$currentPoints points available.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Watch ad'),
+          ),
+          ElevatedButton(
+            onPressed: currentPoints >= PointService.speechGenerationCost
+                ? () => Navigator.of(dialogContext).pop(true)
+                : null,
+            child: Text('Use ${PointService.speechGenerationCost} points'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || usePoints == null) {
+      return;
+    }
+
+    if (!usePoints) {
+      final watched = await MonetizationService.instance
+          .watchRewardedAdForTemplate();
+      if (!mounted) {
+        return;
+      }
+      if (!watched) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('The rewarded ad was not completed.')),
+        );
+        return;
+      }
+    }
+
+    var pointsCharged = false;
+    if (usePoints) {
+      pointsCharged = await PointService.deductPoints(
+        PointService.speechGenerationCost,
+      );
+      if (!pointsCharged) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your points balance changed. Try again.')),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() => _isGeneratingVoiceover = true);
     try {
       final generatedFile = await _aiSpeechService.generateSpeech(
@@ -3431,6 +3547,9 @@ class _ClipSnapStudioEditorState extends State<ClipSnapStudioEditor>
         ),
       );
     } catch (error) {
+      if (pointsCharged) {
+        await PointService.addPoints(PointService.speechGenerationCost);
+      }
       if (!mounted) {
         return;
       }

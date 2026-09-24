@@ -107,12 +107,29 @@ class VideoTemplate {
   }
 
   String buildFilterGraph({String? overlayAssetPath}) {
-    final resolvedOverlay = overlayAssetPath ?? this.overlayAssetPath;
+    final resolvedOverlay =
+        overlayAssetPath ?? materialAssetPath ?? this.overlayAssetPath;
     if (resolvedOverlay == null || resolvedOverlay.isEmpty) {
       return buildFFmpegFilter();
     }
 
     switch (id) {
+      case 'rambo_action':
+        return '[1:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,'
+            'eq=contrast=1.18:saturation=1.24:brightness=-0.04,gblur=sigma=1.2[background]; '
+            '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,split=2[subjectSource][maskSource]; '
+            '[maskSource]format=gray,geq=lum=\'255*exp(-4*(pow((X-W/2)/(W*0.38),2)+pow((Y-H*0.5)/(H*0.56),2)))\','
+            'gblur=sigma=18[subjectMask]; '
+            '[subjectSource]format=rgba,${buildFFmpegFilter()},unsharp=5:5:1.15:5:5:0[subjectRgba]; '
+            '[subjectRgba][subjectMask]alphamerge[subject]; '
+            '[background][subject]overlay=0:0:shortest=1,'
+            'drawbox=x=0:y=0:w=iw:h=ih*0.035:color=0xff9d42@0.45:t=fill,'
+            'drawbox=x=0:y=ih*0.965:w=iw:h=ih*0.035:color=black@0.72:t=fill,'
+            'vignette=PI/4,eq=contrast=1.12:saturation=1.18[v]';
+      case 'cinderella_ballroom':
+        return '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,${buildFFmpegFilter()}[base]; '
+            '[1:v]scale=720:1280,format=rgba,colorchannelmixer=aa=0.58[overlay]; '
+            '[base][overlay]overlay=0:0:shortest=1,eq=brightness=0.08:contrast=1.2:saturation=1.35[v]';
       case 'cyberpunk_tokyo':
         return '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,${buildFFmpegFilter()}[base]; '
             '[1:v]scale=720:1280,format=rgba,colorkey=0x000000:0.12:0.08[overlay]; '
@@ -126,7 +143,9 @@ class VideoTemplate {
             '[1:v]scale=720:1280,chromakey=0x8f3e29:0.3:0.08,format=rgba,colorchannelmixer=aa=0.72[overlay]; '
             '[base][overlay]overlay=0:0[v]';
       default:
-        return '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,${buildFFmpegFilter()}[v]';
+        return '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,${buildFFmpegFilter()}[base]; '
+            '[1:v]scale=720:1280,format=rgba,colorchannelmixer=aa=0.42[overlay]; '
+            '[base][overlay]overlay=0:0[v]';
     }
   }
 

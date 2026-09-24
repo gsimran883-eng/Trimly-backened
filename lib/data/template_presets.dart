@@ -5,17 +5,22 @@ final List<VideoTemplate> clipSnapTemplates = [
     id: 'rambo_action',
     name: 'Rambo Action',
     description: 'Subject mask with a jungle replacement backdrop',
-    previewImagePath: 'assets/templates/synthwave.svg',
-    overlayAssetPath: 'assets/overlays/cyber_hud_tokyo.png',
-    materialAssetPath: 'assets/overlays/cyber_hud_tokyo.png',
+    previewImagePath: 'assets/templates/rambo_action_thumbnail.png',
+    overlayAssetPath: 'assets/overlays/rambo_jungle_backdrop.jpg',
+    materialAssetPath: 'assets/overlays/rambo_jungle_backdrop.jpg',
     isPremium: true,
     badgeText: 'ACTION // MASK',
     ffmpegFilterGraph: 'eq=saturation=1.7:contrast=1.5:brightness=-0.03',
     actionPayload: {
       'subjectMask': true,
       'backgroundReplacement': true,
-      'backgroundPrompt': 'dense jungle combat scene with smoke, tactical light and dust',
-      'materialAssetPath': 'assets/overlays/cyber_hud_tokyo.png',
+      'generativeEdit': true,
+      'generativeProvider': 'openai',
+      'generativeModel': 'gpt-image-1.5',
+      'preserveFace': true,
+      'backgroundPrompt':
+          'dense jungle combat scene with smoke, tactical light and dust',
+      'materialAssetPath': 'assets/overlays/rambo_jungle_backdrop.jpg',
       'grade': 'action_high_contrast',
     },
   ),
@@ -32,7 +37,8 @@ final List<VideoTemplate> clipSnapTemplates = [
     actionPayload: {
       'subjectMask': false,
       'backgroundReplacement': true,
-      'backgroundPrompt': 'grand ballroom with crystal chandeliers and warm golden reflections',
+      'backgroundPrompt':
+          'grand ballroom with crystal chandeliers and warm golden reflections',
       'materialAssetPath': 'assets/templates/vhs.png',
       'particleOverlay': 'assets/overlays/particle_sparkles.svg',
       'grade': 'warm_cinematic',
@@ -77,7 +83,7 @@ final List<VideoTemplate> clipSnapTemplates = [
     hasGlitchEffect: true,
     badgeText: 'PRO // RETRO VHS',
     ffmpegFilterGraph:
-      'eq=contrast=1.1:saturation=1.2:brightness=0.05,colorbalance=rh=0.3:gh=0.1:bh=-0.3,gblur=sigma=0.6',
+        'eq=contrast=1.1:saturation=1.2:brightness=0.05,colorbalance=rh=0.3:gh=0.1:bh=-0.3,gblur=sigma=0.6',
   ),
   const VideoTemplate(
     id: 'holo_matrix',

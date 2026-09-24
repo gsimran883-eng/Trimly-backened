@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../models/template_model.dart';
+import 'point_service.dart';
 
 class MonetizationService {
   MonetizationService._();
@@ -13,6 +14,7 @@ class MonetizationService {
   static final MonetizationService instance = MonetizationService._();
 
   static const String _proMonthlyProductId = 'clipsnap_pro_monthly';
+  static const String pointPackProductId = 'points_pack_100';
   static const String _productionAndroidBannerAdUnitId =
       'ca-app-pub-6716988454965187/9111053804';
   static const String _productionAndroidInterstitialAdUnitId =
@@ -392,6 +394,43 @@ class MonetizationService {
     await InAppPurchase.instance.buyNonConsumable(purchaseParam: purchaseParam);
   }
 
+  Future<bool> startPointPurchaseFlow() async {
+    await initialize();
+    if (!await InAppPurchase.instance.isAvailable()) {
+      return false;
+    }
+
+    final productResponse = await InAppPurchase.instance.queryProductDetails(
+      {pointPackProductId},
+    );
+    if (productResponse.error != null ||
+        productResponse.notFoundIDs.isNotEmpty ||
+        productResponse.productDetails.isEmpty) {
+      return false;
+    }
+
+    final purchaseParam = PurchaseParam(
+      productDetails: productResponse.productDetails.first,
+    );
+    return InAppPurchase.instance.buyConsumable(purchaseParam: purchaseParam);
+  }
+
+  Future<bool> earnPointsFromRewardedAd() async {
+    final rewarded = await promptRewardedGateWithPolicy(
+      allowOnAdLoadFailure: false,
+    );
+    if (!rewarded) {
+      return false;
+    }
+
+    await PointService.addPoints(100);
+    return true;
+  }
+
+  Future<bool> watchRewardedAdForTemplate() {
+    return promptRewardedGateWithPolicy(allowOnAdLoadFailure: false);
+  }
+
   Future<void> _restorePurchases() async {
     final available = await InAppPurchase.instance.isAvailable();
     if (!available) {
@@ -400,8 +439,18 @@ class MonetizationService {
     await InAppPurchase.instance.restorePurchases();
   }
 
-  void _handlePurchases(List<PurchaseDetails> purchases) {
+  Future<void> _handlePurchases(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
+      if (purchase.productID == pointPackProductId) {
+        if (purchase.status == PurchaseStatus.purchased) {
+          await PointService.addPoints(100);
+        }
+        if (purchase.pendingCompletePurchase) {
+          await InAppPurchase.instance.completePurchase(purchase);
+        }
+        continue;
+      }
+
       if (purchase.productID != _proMonthlyProductId) {
         continue;
       }

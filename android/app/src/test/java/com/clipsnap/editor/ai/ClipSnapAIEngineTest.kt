@@ -1,19 +1,22 @@
 package com.clipsnap.editor.ai
 
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClipSnapAIEngineTest {
     @Test
-    fun `subject segmentation is disabled on Android 15 and newer`() {
-        assertFalse(ClipSnapAIEngine.isSegmentationSupported(35))
-        assertFalse(ClipSnapAIEngine.isSegmentationSupported(36))
+    fun `subject segmentation is enabled on every supported app API`() {
+        assertTrue(ClipSnapAIEngine.isSegmentationSupported(36))
+        assertTrue(ClipSnapAIEngine.isSegmentationSupported(35))
+        assertTrue(ClipSnapAIEngine.isSegmentationSupported(34))
+        assertTrue(ClipSnapAIEngine.isSegmentationSupported(24))
     }
 
     @Test
-    fun `subject segmentation remains enabled on Android 14 and older`() {
-        assertTrue(ClipSnapAIEngine.isSegmentationSupported(34))
-        assertTrue(ClipSnapAIEngine.isSegmentationSupported(33))
+    fun `camera images are sampled below the ML memory ceiling`() {
+        assertEquals(4, ClipSnapAIEngine.calculateInSampleSize(4032, 3024, 1280))
+        assertEquals(16, ClipSnapAIEngine.calculateInSampleSize(12000, 9000, 1280))
+        assertEquals(1, ClipSnapAIEngine.calculateInSampleSize(1080, 1920, 1920))
     }
 }

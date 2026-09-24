@@ -26,7 +26,7 @@ class MainActivity : FlutterActivity() {
 						return@setMethodCallHandler
 					}
 
-					val bitmap = imageBytes.decodeBitmap()
+					val bitmap = imageBytes.decodeBitmap(maxDimension = 1280)
 					if (bitmap == null) {
 						result.error("DECODE_FAILED", "Failed to decode input image bytes", null)
 						return@setMethodCallHandler
@@ -47,6 +47,59 @@ class MainActivity : FlutterActivity() {
 					}
 				}
 
+				"generateRamboComposite" -> {
+					val imageBytes = call.argument<ByteArray>("imageBytes")
+					val backgroundBytes = call.argument<ByteArray>("backgroundBytes")
+					if (imageBytes == null || backgroundBytes == null) {
+						result.error("INVALID_ARGS", "imageBytes and backgroundBytes are required", null)
+						return@setMethodCallHandler
+					}
+
+					val bitmap = imageBytes.decodeBitmap(maxDimension = 1280)
+					val background = backgroundBytes.decodeBitmap(maxDimension = 1920)
+					if (bitmap == null || background == null) {
+						result.error("DECODE_FAILED", "Failed to decode composite inputs", null)
+						return@setMethodCallHandler
+					}
+
+					aiEngine.generateRamboComposite(bitmap, background) { composite ->
+						bitmap.recycle()
+						background.recycle()
+						if (composite == null) {
+							result.error("COMPOSITE_FAILED", "Local Rambo composition failed", null)
+						} else {
+							result.success(
+								mapOf(
+									"imageBytes" to composite.toPngBytes(),
+									"width" to composite.width,
+									"height" to composite.height,
+								),
+							)
+						}
+					}
+				}
+
+				"createFacePreserveMask" -> {
+					val imageBytes = call.argument<ByteArray>("imageBytes")
+					if (imageBytes == null) {
+						result.error("INVALID_ARGS", "imageBytes is required", null)
+						return@setMethodCallHandler
+					}
+					val bitmap = imageBytes.decodeBitmap(maxDimension = 1280)
+					if (bitmap == null) {
+						result.error("DECODE_FAILED", "Failed to decode source image", null)
+						return@setMethodCallHandler
+					}
+					aiEngine.createFacePreserveMask(bitmap) { mask ->
+						bitmap.recycle()
+						if (mask == null) {
+							result.error("FACE_NOT_FOUND", "No clear face was detected", null)
+						} else {
+							result.success(mapOf("imageBytes" to mask.toPngBytes()))
+						}
+					}
+				}
+
 				else -> result.notImplemented()
 			}
 		}
@@ -58,8 +111,23 @@ class MainActivity : FlutterActivity() {
 	}
 }
 
-private fun ByteArray.decodeBitmap(): Bitmap? =
-	BitmapFactory.decodeByteArray(this, 0, size)
+private fun ByteArray.decodeBitmap(maxDimension: Int): Bitmap? {
+	val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+	BitmapFactory.decodeByteArray(this, 0, size, bounds)
+	if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+		return null
+	}
+
+	val options = BitmapFactory.Options().apply {
+		inSampleSize = ClipSnapAIEngine.calculateInSampleSize(
+			bounds.outWidth,
+			bounds.outHeight,
+			maxDimension,
+		)
+		inPreferredConfig = Bitmap.Config.ARGB_8888
+	}
+	return BitmapFactory.decodeByteArray(this, 0, size, options)
+}
 
 private fun Bitmap.toPngBytes(): ByteArray {
 	val output = ByteArrayOutputStream()

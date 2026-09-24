@@ -43,8 +43,9 @@ void main() {
     expect(find.text('Audio Extractor'), findsOneWidget);
     expect(find.text('Local Files'), findsOneWidget);
     expect(find.text('Templates'), findsOneWidget);
-    expect(find.text('Neon Velocity'), findsOneWidget);
-    expect(find.text('Cyber Glitch V2'), findsOneWidget);
+    expect(find.text('Rambo Action'), findsOneWidget);
+    expect(find.text('Neon Velocity'), findsNothing);
+    expect(find.text('Cyber Glitch V2'), findsNothing);
     final templateCarousel = find.byKey(
       const ValueKey('studio-templates-grid'),
     );

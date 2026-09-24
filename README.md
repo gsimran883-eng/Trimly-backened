@@ -18,6 +18,25 @@ flutter pub get
 flutter run
 ```
 
+## Local Rambo image generation
+
+The debug app can use a local Stable Diffusion inpainting service instead of an
+API key. Connect the Android phone over USB, then start the private loopback
+service and ADB tunnel:
+
+```bash
+./scripts/run_local_ai.sh
+```
+
+Keep that command running while using **Rambo Action**. The phone creates a
+face-preservation mask with ML Kit; the Mac regenerates clothing, body, and the
+environment with the local Realistic Vision inpainting model. The service binds
+to `127.0.0.1` and is reachable from the phone only through `adb reverse`.
+
+The runtime and model files live under
+`~/Library/Application Support/ClipSnapAI/` and are not stored in this
+repository or on the external drive.
+
 ## CI
 
 This repository includes a GitHub Actions workflow at `.github/workflows/flutter.yml` that runs:
