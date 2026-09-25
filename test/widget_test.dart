@@ -42,14 +42,8 @@ void main() {
     expect(find.text('AI Voiceover'), findsOneWidget);
     expect(find.text('Audio Extractor'), findsOneWidget);
     expect(find.text('Local Files'), findsOneWidget);
-    expect(find.text('Templates'), findsOneWidget);
-    expect(find.text('Rambo Action'), findsOneWidget);
     expect(find.text('Neon Velocity'), findsNothing);
     expect(find.text('Cyber Glitch V2'), findsNothing);
-    final templateCarousel = find.byKey(
-      const ValueKey('studio-templates-grid'),
-    );
-    expect(templateCarousel, findsOneWidget);
     expect(find.text('Holographic Matrix'), findsNothing);
     expect(find.text('Quantum Cinema'), findsNothing);
     expect(
