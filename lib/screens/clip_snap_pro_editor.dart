@@ -12,8 +12,9 @@ import '../data/template_presets.dart';
 import '../models/template_model.dart';
 import '../services/ai_generative_template_service.dart';
 import '../services/ai_image_cloud_service.dart';
-import '../services/export_status_service.dart';
 import '../services/ai_local_segmentation_service.dart';
+import '../services/api_service.dart';
+import '../services/export_status_service.dart';
 import '../services/monetization_service.dart';
 import '../services/point_service.dart';
 import '../theme/motion_spec.dart';
@@ -2533,6 +2534,14 @@ class _ClipSnapProEditorState extends State<ClipSnapProEditor>
     final sourceFile = widget.imageFile;
     if (sourceFile == null) {
       _showAiError('Select a source photo before generating the template.');
+      return;
+    }
+
+    final backendAvailable = await ApiService.checkHealth();
+    if (!backendAvailable) {
+      _showAiError(
+        'Render backend is offline. Check https://trimly-backened-1.onrender.com and try again.',
+      );
       return;
     }
 

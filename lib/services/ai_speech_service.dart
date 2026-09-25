@@ -23,12 +23,44 @@ class AISpeechService {
                 'OPENAI_TTS_ENDPOINT',
                 defaultValue: 'https://api.elevenlabs.io/v1',
               ),
-            );
+            ),
+        _provider = _detectProvider(
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+        );
 
   final String _apiKey;
   final String _baseUrl;
+  final String _provider;
 
   bool get isConfigured => _apiKey.isNotEmpty;
+
+  static String _detectProvider({String? apiKey, String? baseUrl}) {
+    final explicitApiKey = apiKey ??
+        const String.fromEnvironment(
+          'ELEVENLABS_API_KEY',
+          defaultValue: '',
+        );
+    if (explicitApiKey.isNotEmpty) {
+      return 'elevenlabs';
+    }
+
+    final openAiKey = const String.fromEnvironment('OPENAI_API_KEY', defaultValue: '');
+    if (openAiKey.isNotEmpty) {
+      return 'openai';
+    }
+
+    final configuredBase = baseUrl ??
+        const String.fromEnvironment(
+          'ELEVENLABS_BASE_URL',
+          defaultValue: '',
+        );
+    if (configuredBase.isNotEmpty && configuredBase.contains('openai')) {
+      return 'openai';
+    }
+
+    return 'elevenlabs';
+  }
 
   /// Generates speech from text and saves it as an audio file on device.
   Future<File?> generateSpeech({
@@ -43,10 +75,69 @@ class AISpeechService {
 
     if (!isConfigured) {
       throw StateError(
-        'AISpeechService is not configured. Set ELEVENLABS_API_KEY with --dart-define.',
+        'AISpeechService is not configured. Set ELEVENLABS_API_KEY or OPENAI_API_KEY with --dart-define.',
       );
     }
 
+    if (_provider == 'openai') {
+      return _generateWithOpenAI(
+        text: text,
+        outputFormat: outputFormat,
+      );
+    }
+
+    return _generateWithElevenLabs(
+      text: text,
+      voiceId: voiceId,
+      modelId: modelId,
+      outputFormat: outputFormat,
+    );
+  }
+
+  Future<File?> _generateWithOpenAI({
+    required String text,
+    required String outputFormat,
+  }) async {
+    final endpoint = const String.fromEnvironment(
+      'OPENAI_TTS_ENDPOINT',
+      defaultValue: 'https://api.openai.com/v1/audio/speech',
+    );
+
+    final response = await http.post(
+      Uri.parse(endpoint),
+      headers: {
+        HttpHeaders.authorizationHeader: 'Bearer $_apiKey',
+        HttpHeaders.contentTypeHeader: 'application/json',
+      },
+      body: jsonEncode({
+        'model': 'tts-1',
+        'input': text,
+        'voice': 'onyx',
+        'response_format': outputFormat,
+      }),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException(
+        'OpenAI TTS failed: ${response.statusCode} ${response.body}',
+        uri: Uri.parse(endpoint),
+      );
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final filePath =
+        '${tempDir.path}/speech_${DateTime.now().millisecondsSinceEpoch}.$outputFormat';
+    final file = File(filePath);
+    await file.writeAsBytes(response.bodyBytes, flush: true);
+    return file;
+  }
+
+  Future<File?> _generateWithElevenLabs({
+    required String text,
+    required String voiceId,
+    required String modelId,
+    required String outputFormat,
+  }) async {
     final url = Uri.parse('$_baseUrl/text-to-speech/$voiceId');
 
     final response = await http.post(
